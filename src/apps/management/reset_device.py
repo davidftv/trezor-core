@@ -140,8 +140,7 @@ async def show_mnemonic_page(page, page_count, mnemonic):
         await Button(
             ui.grid(4, n_x=1),
             "I'm done",
-            normal_style=ui.BTN_CONFIRM,
-            active_style=ui.BTN_CONFIRM_ACTIVE)
+            style=ui.BTN_CONFIRM)
         ui.display.clear()
     else:
         await animate_swipe()

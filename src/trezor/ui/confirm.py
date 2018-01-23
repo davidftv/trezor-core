@@ -17,15 +17,12 @@ class ConfirmDialog(Widget):
         self.content = content
         if cancel is not None:
             self.confirm = Button(ui.grid(9, n_x=2), confirm,
-                                  normal_style=ui.BTN_CONFIRM,
-                                  active_style=ui.BTN_CONFIRM_ACTIVE)
+                                  style=ui.BTN_CONFIRM)
             self.cancel = Button(ui.grid(8, n_x=2), cancel,
-                                 normal_style=ui.BTN_CANCEL,
-                                 active_style=ui.BTN_CANCEL_ACTIVE)
+                                 style=ui.BTN_CANCEL)
         else:
             self.confirm = Button(ui.grid(4, n_x=1), confirm,
-                                  normal_style=ui.BTN_CONFIRM,
-                                  active_style=ui.BTN_CONFIRM_ACTIVE)
+                                  style=ui.BTN_CONFIRM)
             self.cancel = None
 
     def render(self):
@@ -52,9 +49,8 @@ class HoldToConfirmDialog(Widget):
 
     def __init__(self, content, hold='Hold to confirm', *args, **kwargs):
         self.content = content
-        self.button = Button(ui.grid(4, n_x=1), hold,
-                             normal_style=ui.BTN_CONFIRM,
-                             active_style=ui.BTN_CONFIRM_ACTIVE)
+        self.style = kwargs.pop('style', ui.BTN_CONFIRM)
+        self.button = Button(ui.grid(4, n_x=1), hold, style=self.style)
         self.loader = Loader(*args, **kwargs)
 
     def render(self):
