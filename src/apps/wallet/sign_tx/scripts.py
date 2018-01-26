@@ -2,6 +2,8 @@ from apps.wallet.sign_tx.multisig import *
 from apps.wallet.sign_tx.writers import *
 from apps.common.hash_writer import HashWriter
 
+from trezor.crypto.hashlib import sha256, ripemd160
+from ubinascii import hexlify
 
 # TX Scripts
 # ===
@@ -100,21 +102,50 @@ def input_script_p2wpkh_in_p2sh(pubkeyhash: bytes) -> bytearray:
 
 # =============== Multisig ===============
 
-def multisig_script(pubkeys, m) -> HashWriter:
+def input_script_multisig(current_signature, other_signatures, pubkeys, m: int):
+    w = bytearray()
+    for s in other_signatures:
+        if len(s):
+            write_op_push(w, len(s) + 1)
+            write_bytes(w, s)
+            w.append(0x01)  # SIGHASH_ALL
+    write_op_push(w, len(current_signature) + 1)  # todo check - is this correct?
+    write_bytes(w, current_signature)
+    w.append(0x01)  # SIGHASH_ALL
+    return w
+
+
+# returns a ripedm(sha256()) hash of a multisig script used in P2SH
+def output_script_multisig_p2sh(pubkeys, m) -> HashWriter:
+    script = script_multisig(pubkeys, m)
+    h = sha256(script).digest()
+    return ripemd160(h).digest()
+
+
+# returns a sha256() hash of a multisig script used in native P2WSH
+def output_script_multisig_p2wsh(pubkeys, m) -> HashWriter:
+    for pubkey in pubkeys:
+        if len(pubkey) != 33:
+            raise Exception  # only compressed public keys are allowed for P2WSH
+    script = script_multisig(pubkeys, m)
+    return sha256(script).digest()
+
+
+def script_multisig(pubkeys, m) -> bytes:
     n = len(pubkeys)
     if n < 1 or n > 15:
         raise Exception
     if m < 1 or m > 15:
         raise Exception
 
-    h = HashWriter(sha256)
-    h.append(0x50 + m)
+    w = bytearray()
+    w.append(0x50 + m)
     for p in pubkeys:
-        h.append(len(p))  # OP_PUSH length (33 for compressed)
-        write_bytes(h, p)
-    h.append(0x50 + n)
-    h.append(0xAE)  # OP_CHECKMULTISIG
-    return h
+        w.append(len(p))  # OP_PUSH length (33 for compressed)
+        write_bytes(w, p)
+    w.append(0x50 + n)
+    w.append(0xAE)  # OP_CHECKMULTISIG
+    return w
 
 
 # -------------------------- Others --------------------------

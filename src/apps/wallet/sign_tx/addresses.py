@@ -9,6 +9,7 @@ from trezor.messages import FailureType
 from trezor.messages import InputScriptType
 
 from apps.wallet.sign_tx.scripts import *
+from apps.wallet.sign_tx.multisig import *
 
 # supported witness version for bech32 addresses
 _BECH32_WITVER = const(0x00)
@@ -40,8 +41,43 @@ def get_address(script_type: InputScriptType, coin: CoinType, node) -> str:
                            'Invalid script type')
 
 
+def get_multisig_address(script_type: InputScriptType, coin: CoinType, node, multisig) -> str:
+
+    pubkey = node.public_key()
+    index = multisig_pubkey_index(multisig, pubkey)
+    if index is None:
+        raise AddressError(FailureType.ProcessError,
+                           'Public key not found')
+
+    # output_script_multisig_p2sh([], 2)
+    # digest = h.get_value()
+
+    # if script_type == InputScriptType.SPENDWITNESS:  # native p2wsh
+    #     if not coin.segwit or not coin.bech32_prefix:
+    #         raise AddressError(FailureType.ProcessError,
+    #                            'Segwit not enabled on this coin')
+    #     return address_p2wsh(digest, coin.bech32_prefix)
+    #
+    # elif script_type == InputScriptType.SPENDP2SHWITNESS:  # p2wsh using p2sh
+    #     if not coin.segwit or coin.address_type_p2sh is None:
+    #         raise AddressError(FailureType.ProcessError,
+    #                            'Segwit not enabled on this coin')
+    #     return address_p2wsh_in_p2sh(digest, coin.address_type_p2sh)
+
+    if (script_type == InputScriptType.SPENDADDRESS or
+          script_type == InputScriptType.SPENDMULTISIG):  # p2sh
+        if coin.address_type_p2sh is None:
+            raise AddressError(FailureType.ProcessError,
+                               'Multisig not enabled on this coin')
+        return address_multisig_p2sh(multisig.pubkeys, multisig.m, coin.address_type_p2sh)
+
+    else:
+        raise AddressError(FailureType.ProcessError,
+                           'Invalid script type')
+
+
 def address_multisig_p2sh(pubkeys: bytes, m: int, addrtype):
-    digest = multisig_p2sh_script(pubkeys, m)
+    digest = output_script_multisig_p2sh(pubkeys, m)
     if addrtype is None:
         raise AddressError(FailureType.ProcessError,
                            'Multisig not enabled on this coin')
@@ -49,7 +85,7 @@ def address_multisig_p2sh(pubkeys: bytes, m: int, addrtype):
 
 
 def address_multisig_p2wsh_in_p2sh(pubkeys: bytes, m: int, addrtype):
-    digest = multisig_p2wsh_script(pubkeys, m)
+    digest = output_script_multisig_p2wsh(pubkeys, m)
     if addrtype is None:
         raise AddressError(FailureType.ProcessError,
                            'Multisig not enabled on this coin')
@@ -57,26 +93,11 @@ def address_multisig_p2wsh_in_p2sh(pubkeys: bytes, m: int, addrtype):
 
 
 def address_multisig_p2wsh(pubkeys: bytes, m: int, addrtype):
-    digest = multisig_p2wsh_script(pubkeys, m)
+    digest = output_script_multisig_p2wsh(pubkeys, m)
     if addrtype is None:
         raise AddressError(FailureType.ProcessError,
                            'Multisig not enabled on this coin')
     return address_p2sh(digest, addrtype)
-
-
-# Returns ripemd160(sha256(multisig script)) as per P2SH definition
-def multisig_p2sh_script(pubkeys, m) -> bytes:
-    script = multisig_script(pubkeys, m)
-    return ripemd160(script.get_digest()).digest()
-
-
-# Returns sha256(multisig script) as per P2WSH definition
-def multisig_p2wsh_script(pubkeys, m) -> bytes:
-    for pubkey in pubkeys:
-        if len(pubkey) != 33:
-            raise Exception  # only compressed public keys are allowed for P2WSH
-    script = multisig_script(pubkeys, m)
-    return script.get_digest()
 
 
 def address_p2sh(redeem_script_hash: bytes, addrtype: int) -> str:

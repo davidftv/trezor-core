@@ -2,6 +2,7 @@
 from trezor.crypto.hashlib import sha256
 
 from apps.wallet.sign_tx.writers import *
+from ubinascii import hexlify
 
 # TX Serialization
 # ===
